@@ -110,6 +110,10 @@ int efuse_valid_check (const char *efuse_data)
 {
     char data[10], addr, mac;
 
+    // not odroid mac
+    if (strstr (efuse_data, "001E06") == NULL)
+        return 0;
+
     memset (data, 0, sizeof(data));
     strncpy (data, &efuse_data[EFUSE_MAC_OFFSET + 6], 2);
     mac = atoi(data);
