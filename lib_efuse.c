@@ -198,10 +198,10 @@ int efuse_control (char *efuse_data, char control)
     }
     if (size != EFUSE_SIZE_M1S) {
         printf ("error, read/write size are different. (read/write size = %d, %d)\n",
-            size, EFUSE_SIZE_M1S);
-            return 0;
+		size, EFUSE_SIZE_M1S);
+        return 0;
     }
-	return 1;
+    return 1;
 }
 
 //------------------------------------------------------------------------------
