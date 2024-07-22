@@ -125,14 +125,13 @@ static void parse_opts (int argc, char *argv[])
             OPT_EFUSE_CONTROL = EFUSE_ERASE;
             break;
         case 'c':
-            OPT_EFUSE_CONTROL = EFUSE_READ;
             OPT_ADD_CONTROL   = "valid_check";
             break;
         case 'm':
-            OPT_EFUSE_CONTROL = EFUSE_READ;
             OPT_ADD_CONTROL   = "mac_read";
             break;
         case 'b':
+            toupperstr(optarg);
             OPT_BOARD_NAME = optarg;
             break;
         default:
@@ -145,7 +144,7 @@ static void parse_opts (int argc, char *argv[])
 //------------------------------------------------------------------------------
 int main (int argc, char **argv)
 {
-    char efuse_data[EFUSE_SIZE_M1S+1];
+    char efuse_data[EFUSE_UUID_SIZE+1];
 
     parse_opts (argc, argv);
 
@@ -153,10 +152,18 @@ int main (int argc, char **argv)
         print_usage("argc count < 2");
     memset  (efuse_data, 0, sizeof(efuse_data));
 
+    // default board is m1s
+    efuse_set_board (eBOARD_ID_M1S);
+
+    if (OPT_BOARD_NAME != NULL) {
+        if (!strncmp (OPT_BOARD_NAME, "M2", sizeof("M2")))
+            efuse_set_board (eBOARD_ID_M2);
+    }
+
     switch (OPT_EFUSE_CONTROL) {
         case EFUSE_WRITE:
             if (OPT_EFUSE_DATA != NULL) {
-                memcpy (efuse_data, OPT_EFUSE_DATA, EFUSE_SIZE_M1S);
+                memcpy (efuse_data, OPT_EFUSE_DATA, EFUSE_UUID_SIZE);
                 toupperstr(efuse_data);
             }
         case EFUSE_READ: case EFUSE_ERASE:
@@ -166,6 +173,7 @@ int main (int argc, char **argv)
             break;
     }
     if (OPT_ADD_CONTROL != NULL) {
+        efuse_control (efuse_data, EFUSE_READ);
         if (!strncmp (OPT_ADD_CONTROL, "mac_read", strlen("mac_read")-1)) {
             char mac[MAC_STR_SIZE];
             memset (mac, 0, sizeof(mac));
@@ -177,7 +185,9 @@ int main (int argc, char **argv)
         }
         if (!strncmp (OPT_ADD_CONTROL, "valid_check", strlen("valid_check")-1)) {
             if (efuse_valid_check (efuse_data))
-                printf("eFuse data is valid (odroid-m1s)\n");
+                printf("success, eFuse data is valid \n");
+            else
+                printf("error, eFuse data is not valid \n");
         }
     }
     return 0;

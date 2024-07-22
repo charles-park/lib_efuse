@@ -28,17 +28,24 @@
 #define EFUSE_LOCK          1
 
 // mac string size aabbccddeeff
-#define MAC_STR_SIZE        12
+#define MAC_STR_SIZE    12
 
-// uuid + mac
-#define EFUSE_SIZE_M1S      36
+// uuid + mac (00000000-0000-0000-0000-001e06xxxxxx)
+#define EFUSE_UUID_SIZE 36
 
-// mac address start pos
-#define EFUSE_MAC_OFFSET    (EFUSE_SIZE_M1S - MAC_STR_SIZE)
+//------------------------------------------------------------------------------
+
+enum {
+    eBOARD_ID_M1S = 0,
+    eBOARD_ID_M2,
+    eBOARD_ID_END
+};
 
 //------------------------------------------------------------------------------
 //	function prototype
 //------------------------------------------------------------------------------
+extern int  efuse_set_board     (int board_id);
+extern int  efuse_get_board     (void);
 extern int  efuse_valid_check   (const char *efuse_data);
 extern void efuse_get_mac       (const char *efuse_data, char *mac);
 extern int  efuse_control       (char *efuse_data, char control);
