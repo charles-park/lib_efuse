@@ -237,9 +237,84 @@ void efuse_get_mac (const char *efuse_data, char *mac)
 }
 
 //------------------------------------------------------------------------------
+#define IOC_WRITE   0x7673
+#define IOC_DUMP    0x7674
+#define IOC_ERASE   0x7675
+
+#define IOC_MSTR_WRITE  "HKM1"
+#define IOC_MSTR_DUMP   "1234"
+
+#define UUID_FLASH_SIZE     0x80
+#define UUID_WRITE_SIZE     32
+
+struct ioc_data {
+    char            mstr[4];
+    int             offset;
+    int             len;
+    unsigned char   cksum;
+    char            uuid [32];
+}   __attribute__((packed));
+
+unsigned char cksum (const char *data)
+{
+    unsigned char sum = 0, i;
+
+    for (i = 0; i < UUID_WRITE_SIZE; i++)
+        sum += data [i];
+
+    return sum;
+}
+
 int efuse_write_m1 (const char *efuse_data, char control)
 {
-    return 0;
+    int fd, offset = 0;
+    struct ioc_data data;
+
+    if ((fd = open (eFuseRWControl, O_RDWR)) < 0)
+        return 0;
+
+    memset (&data, 0, sizeof(data));
+    memcpy (data.mstr, IOC_MSTR_WRITE, strlen(IOC_MSTR_WRITE));
+
+    {
+        int i, cnt;
+
+        // remove '-' string
+        for (i = 0, cnt = 0; i < strlen(efuse_data); i++) {
+            if (efuse_data [i] != '-')
+                data.uuid [cnt++] = efuse_data [i];
+        }
+        data.len   = cnt;
+        data.cksum = cksum (&data.uuid [0]);
+    }
+
+    if (control == EFUSE_WRITE) {
+        if (data.len != UUID_WRITE_SIZE) {
+            printf ("%s : uuid data size(%d) != UUID_FLASH_SIZE(32)\n", __func__, data.len);
+            close (fd);
+            return 0;
+        }
+
+        /* Finding new uuid data write area. */
+        for (offset = 0; offset < UUID_FLASH_SIZE; offset += UUID_FLASH_SIZE) {
+            data.offset = offset;
+            if (!ioctl (fd, IOC_WRITE, &data)) {
+                printf ("write success offset = %d\n", offset);
+                break;
+            }
+        }
+        /* Delete previous uuid data.*/
+        if (offset && (offset < UUID_FLASH_SIZE)) {
+            data.offset = offset - UUID_FLASH_SIZE;
+            printf ("erase offset = %d, erase ret = %d\n",
+                data.offset - UUID_WRITE_SIZE, ioctl (fd, IOC_ERASE, &data));
+        } else {
+            printf ("Can't found empty uuid flash area.\n");
+        }
+    }
+    close (fd);
+
+    return  (offset < UUID_FLASH_SIZE) ? 1 : 0;
 }
 
 //------------------------------------------------------------------------------
@@ -262,8 +337,6 @@ int efuse_control (char *efuse_data, char control)
         return 0;
     }
 
-    toupperstr(efuse_data);
-
     switch (control) {
         case EFUSE_ERASE:
             memset (efuse_data, 0, EFUSE_SIZE_BYTE);
@@ -273,6 +346,7 @@ int efuse_control (char *efuse_data, char control)
                     printf ("error, m1 efuse %s\n", control == EFUSE_ERASE ? "erase" : "write");
                     return 0;
                 }
+                size = EFUSE_SIZE_BYTE;
             } else {
                 if (!efuse_lock(EFUSE_UNLOCK))
                     return 0;
