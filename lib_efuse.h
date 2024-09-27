@@ -36,7 +36,8 @@
 //------------------------------------------------------------------------------
 
 enum {
-    eBOARD_ID_M1S = 0,
+    eBOARD_ID_M1 = 0,
+    eBOARD_ID_M1S,
     eBOARD_ID_M2,
     eBOARD_ID_END
 };

@@ -59,8 +59,19 @@ static char *MAC_START_STR    = NULL;
 static int   MAC_BLOCK_CNT    = 0;
 static int   MAC_RW_OFFSET    = 0;
 static int   EFUSE_SIZE_BYTE  = 0;
-static int   EFUSE_BOARD_ID   = eBOARD_ID_M1S;
+static int   EFUSE_BOARD_ID   = eBOARD_ID_M1;
 static int   EFUSE_MAC_OFFSET = 0;
+
+//------------------------------------------------------------------------------
+// ODROID_M1
+//------------------------------------------------------------------------------
+const char *M1_eFuseRWControl = "/dev/efuse";
+const char *M1_eFuseRWFile    = "/sys/class/efuse/uuid";
+
+const char *M1_MAC_START_STR = "001E0651"; // 65536개
+const int   M1_MAC_BLOCK_CNT = 2;          // 2개의 block reserved (13만개)
+const int   M1_MAC_RW_OFFSET = 0;
+const int   M1_EFUSE_SIZE_BYTE = EFUSE_UUID_SIZE;
 
 //------------------------------------------------------------------------------
 // ODROID_M1S
@@ -121,7 +132,7 @@ static void toupperstr (char *p)
 //------------------------------------------------------------------------------
 static int efuse_lock (char lock)
 {
-    int fd;
+    int fd = 0;
 
     if ((fd = open (eFuseRWControl, O_WRONLY)) < 0) {
         printf ("error, file write mode open (%s)\n", eFuseRWControl);
@@ -139,6 +150,18 @@ int efuse_set_board (int board_id)
 {
     switch (board_id) {
         default :
+        case eBOARD_ID_M1:
+            eFuseRWControl  = (char *)M1_eFuseRWControl;
+            eFuseRWFile     = (char *)M1_eFuseRWFile;
+
+            MAC_START_STR   = (char *)M1_MAC_START_STR;
+            MAC_BLOCK_CNT   = M1_MAC_BLOCK_CNT;
+            MAC_RW_OFFSET   = M1_MAC_RW_OFFSET;
+            EFUSE_SIZE_BYTE = M1_EFUSE_SIZE_BYTE;
+            EFUSE_BOARD_ID  = eBOARD_ID_M1;
+
+            EFUSE_MAC_OFFSET = EFUSE_UUID_SIZE - MAC_STR_SIZE;
+            break;
         case eBOARD_ID_M1S:
             eFuseRWControl  = (char *)M1S_eFuseRWControl;
             eFuseRWFile     = (char *)M1S_eFuseRWFile;
@@ -192,7 +215,7 @@ int efuse_valid_check (const char *efuse_data)
     strncpy (data, &MAC_START_STR[6], 2);
     addr = atoi(data);
 
-    dbg_msg ("ODROID (Board ID = %d, 0 = m1s, 1 = m2) mac range.\n", EFUSE_BOARD_ID);
+    dbg_msg ("ODROID (Board ID = %d, 0 = m1, 1 = m1s, 2 = m2) mac range.\n", EFUSE_BOARD_ID);
     if ((mac >= addr) && (mac < addr + MAC_BLOCK_CNT)) {
         dbg_msg ("success, efuse data = %s, mac = %s\n",
             efuse_data, &efuse_data[EFUSE_MAC_OFFSET]);
@@ -214,6 +237,12 @@ void efuse_get_mac (const char *efuse_data, char *mac)
 }
 
 //------------------------------------------------------------------------------
+int efuse_write_m1 (const char *efuse_data, char control)
+{
+    return 0;
+}
+
+//------------------------------------------------------------------------------
 int efuse_control (char *efuse_data, char control)
 {
     int fd;
@@ -227,6 +256,7 @@ int efuse_control (char *efuse_data, char control)
         dbg_msg ("error, eFuse control file not found.(%s)\n", eFuseRWControl);
         return 0;
     }
+
     if (efuse_data == NULL) {
         dbg_msg ("error, eFuse data is NULL.\n");
         return 0;
@@ -238,17 +268,24 @@ int efuse_control (char *efuse_data, char control)
         case EFUSE_ERASE:
             memset (efuse_data, 0, EFUSE_SIZE_BYTE);
         case EFUSE_WRITE:
-            if (!efuse_lock(EFUSE_UNLOCK))
-                return 0;
+            if (efuse_get_board() == eBOARD_ID_M1) {
+                if (!efuse_write_m1 (efuse_data, control)) {
+                    printf ("error, m1 efuse %s\n", control == EFUSE_ERASE ? "erase" : "write");
+                    return 0;
+                }
+            } else {
+                if (!efuse_lock(EFUSE_UNLOCK))
+                    return 0;
 
-            if ((fd = open (eFuseRWFile, O_WRONLY)) < 0) {
-                printf ("error, file write mode open (%s)\n", eFuseRWFile);
-                return 0;
+                if ((fd = open (eFuseRWFile, O_WRONLY)) < 0) {
+                    printf ("error, file write mode open (%s)\n", eFuseRWFile);
+                    return 0;
+                }
+                size = pwrite (fd, efuse_data, EFUSE_SIZE_BYTE, MAC_RW_OFFSET);
+                close (fd);
+                if (!efuse_lock(EFUSE_LOCK))
+                    return 0;
             }
-            size = pwrite (fd, efuse_data, EFUSE_SIZE_BYTE, MAC_RW_OFFSET);
-            close (fd);
-            if (!efuse_lock(EFUSE_LOCK))
-                return 0;
 
             dbg_msg ("success, eFuse data write. efuse = %s\n", efuse_data);
             break;
@@ -271,6 +308,8 @@ int efuse_control (char *efuse_data, char control)
 		size, EFUSE_SIZE_BYTE);
         return 0;
     }
+
+    toupperstr (efuse_data);
     return 1;
 }
 
