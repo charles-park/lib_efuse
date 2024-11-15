@@ -20,12 +20,12 @@
 //------------------------------------------------------------------------------
 // ODROID-M1S
 //------------------------------------------------------------------------------
-#define EFUSE_READ          0
-#define EFUSE_ERASE         1
-#define EFUSE_WRITE         2
+#define EFUSE_READ      0
+#define EFUSE_ERASE     1
+#define EFUSE_WRITE     2
 
-#define EFUSE_UNLOCK        0
-#define EFUSE_LOCK          1
+#define EFUSE_UNLOCK    0
+#define EFUSE_LOCK      1
 
 // mac string size aabbccddeeff
 #define MAC_STR_SIZE    12
@@ -34,11 +34,32 @@
 #define EFUSE_UUID_SIZE 36
 
 //------------------------------------------------------------------------------
+#define IOC_WRITE       0x7673
+#define IOC_DUMP        0x7674
+#define IOC_ERASE       0x7675
 
+#define IOC_MSTR_WRITE_M1   "HKM1"
+#define IOC_MSTR_WRITE_C4   "HKN2"
+
+#define IOC_MSTR_DUMP       "1234"
+
+#define UUID_FLASH_SIZE     0x80
+#define UUID_WRITE_SIZE     32
+
+struct ioc_data {
+    char            mstr[4];
+    int             offset;
+    int             len;
+    unsigned char   cksum;
+    char            uuid [32];
+}   __attribute__((packed));
+
+//------------------------------------------------------------------------------
 enum {
     eBOARD_ID_M1 = 0,
     eBOARD_ID_M1S,
     eBOARD_ID_M2,
+    eBOARD_ID_C4,
     eBOARD_ID_END
 };
 

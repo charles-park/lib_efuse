@@ -63,7 +63,7 @@ static void print_usage(const char *prog)
          "  -w --efuse_write        efuse write\n"
          "  -e --efuse_erase        efuse erase\n"
          "  -c --efuse_check        efuse data vaild check\n"
-         "  -b --efuse_board        board name (default m1s)\n"
+         "  -b --efuse_board        board name (default m1s), m1, m2, m1s, c4\n"
          "  -m --efuse_mac          Display the mac in the read data\n"
          "\n"
          "   e.g) lib_efuse -b m1s -w dcbaa404-91bd-4a63-b5f1-001e06520000\n"
@@ -125,6 +125,7 @@ static void parse_opts (int argc, char *argv[])
             OPT_EFUSE_CONTROL = EFUSE_ERASE;
             break;
         case 'c':
+            OPT_EFUSE_CONTROL = EFUSE_ERASE;
             OPT_ADD_CONTROL   = "valid_check";
             break;
         case 'm':
@@ -156,8 +157,14 @@ int main (int argc, char **argv)
     efuse_set_board (eBOARD_ID_M1S);
 
     if (OPT_BOARD_NAME != NULL) {
-        if (!strncmp (OPT_BOARD_NAME, "M2", sizeof("M2")))
+        if      (!strncmp (OPT_BOARD_NAME, "M1", sizeof("M1")))
             efuse_set_board (eBOARD_ID_M2);
+        else if (!strncmp (OPT_BOARD_NAME, "M2", sizeof("M2")))
+            efuse_set_board (eBOARD_ID_C4);
+        else if (!strncmp (OPT_BOARD_NAME, "C4", sizeof("C4")))
+            efuse_set_board (eBOARD_ID_C4);
+        else
+            efuse_set_board (eBOARD_ID_M1S);
     }
 
     switch (OPT_EFUSE_CONTROL) {

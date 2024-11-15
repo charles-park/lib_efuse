@@ -96,6 +96,18 @@ const int   M2_MAC_RW_OFFSET = (8191 * 512);
 const int   M2_EFUSE_SIZE_BYTE = EFUSE_UUID_SIZE;
 
 //------------------------------------------------------------------------------
+// ODROID_C4 (2024/11/14, C4 Jig upgrade)
+//------------------------------------------------------------------------------
+const char *C4_eFuseRWControl = "/dev/efuse";
+const char *C4_eFuseRWFile    = "/sys/class/efuse/uuid";
+
+/* 2024/11/14 Jig upgrade. */
+const char *C4_MAC_START_STR = "001E064B"; // 65536개
+const int   C4_MAC_BLOCK_CNT = 2;          // 2개의 block reserved (13만개)
+const int   C4_MAC_RW_OFFSET = 0;
+const int   C4_EFUSE_SIZE_BYTE = EFUSE_UUID_SIZE;
+
+//------------------------------------------------------------------------------
 // function prototype
 //------------------------------------------------------------------------------
 static void tolowerstr  (char *p);
@@ -186,6 +198,18 @@ int efuse_set_board (int board_id)
 
             EFUSE_MAC_OFFSET = EFUSE_UUID_SIZE - MAC_STR_SIZE;
             break;
+        case eBOARD_ID_C4:
+            eFuseRWControl  = (char *)C4_eFuseRWControl;
+            eFuseRWFile     = (char *)C4_eFuseRWFile;
+
+            MAC_START_STR   = (char *)C4_MAC_START_STR;
+            MAC_BLOCK_CNT   = C4_MAC_BLOCK_CNT;
+            MAC_RW_OFFSET   = C4_MAC_RW_OFFSET;
+            EFUSE_SIZE_BYTE = C4_EFUSE_SIZE_BYTE;
+            EFUSE_BOARD_ID  = eBOARD_ID_C4;
+
+            EFUSE_MAC_OFFSET = EFUSE_UUID_SIZE - MAC_STR_SIZE;
+            break;
     }
     return 1;
 }
@@ -215,7 +239,7 @@ int efuse_valid_check (const char *efuse_data)
     strncpy (data, &MAC_START_STR[6], 2);
     addr = atoi(data);
 
-    dbg_msg ("ODROID (Board ID = %d, 0 = m1, 1 = m1s, 2 = m2) mac range.\n", EFUSE_BOARD_ID);
+    dbg_msg ("ODROID (Board ID = %d, 0 = m1, 1 = m1s, 2 = m2, 3 = c4) mac range.\n", EFUSE_BOARD_ID);
     if ((mac >= addr) && (mac < addr + MAC_BLOCK_CNT)) {
         dbg_msg ("success, efuse data = %s, mac = %s\n",
             efuse_data, &efuse_data[EFUSE_MAC_OFFSET]);
@@ -237,24 +261,6 @@ void efuse_get_mac (const char *efuse_data, char *mac)
 }
 
 //------------------------------------------------------------------------------
-#define IOC_WRITE   0x7673
-#define IOC_DUMP    0x7674
-#define IOC_ERASE   0x7675
-
-#define IOC_MSTR_WRITE  "HKM1"
-#define IOC_MSTR_DUMP   "1234"
-
-#define UUID_FLASH_SIZE     0x80
-#define UUID_WRITE_SIZE     32
-
-struct ioc_data {
-    char            mstr[4];
-    int             offset;
-    int             len;
-    unsigned char   cksum;
-    char            uuid [32];
-}   __attribute__((packed));
-
 unsigned char cksum (const char *data)
 {
     unsigned char sum = 0, i;
@@ -262,10 +268,11 @@ unsigned char cksum (const char *data)
     for (i = 0; i < UUID_WRITE_SIZE; i++)
         sum += data [i];
 
-    return sum;
+    return sum & 0xFF;
 }
 
-int efuse_write_m1 (const char *efuse_data, char control)
+//------------------------------------------------------------------------------
+int efuse_write_ioctl (const char *efuse_data, char control)
 {
     int fd, offset = 0;
     struct ioc_data data;
@@ -274,27 +281,28 @@ int efuse_write_m1 (const char *efuse_data, char control)
         return 0;
 
     memset (&data, 0, sizeof(data));
-    memcpy (data.mstr, IOC_MSTR_WRITE, strlen(IOC_MSTR_WRITE));
+    memcpy (data.mstr, (efuse_get_board() == eBOARD_ID_M1) ?
+            IOC_MSTR_WRITE_M1 : IOC_MSTR_WRITE_C4, strlen(IOC_MSTR_WRITE_M1));
 
     {
         int i, cnt;
 
         // remove '-' string
-        for (i = 0, cnt = 0; i < strlen(efuse_data); i++) {
+        for (i = 0, cnt = 0; i < (int)strlen(efuse_data); i++) {
             if (efuse_data [i] != '-')
                 data.uuid [cnt++] = efuse_data [i];
         }
-        data.len   = cnt;
+        data.len   = (control == EFUSE_WRITE) ? cnt : UUID_WRITE_SIZE;
         data.cksum = cksum (&data.uuid [0]);
     }
 
-    if (control == EFUSE_WRITE) {
-        if (data.len != UUID_WRITE_SIZE) {
-            printf ("%s : uuid data size(%d) != UUID_FLASH_SIZE(32)\n", __func__, data.len);
-            close (fd);
-            return 0;
-        }
+    if (data.len != UUID_WRITE_SIZE) {
+        printf ("%s : uuid data size(%d) != UUID_FLASH_SIZE(32)\n", __func__, data.len);
+        close (fd);
+        return 0;
+    }
 
+    if (control == EFUSE_WRITE) {
         /* Finding new uuid data write area. */
         for (offset = 0; offset < UUID_FLASH_SIZE; offset += UUID_WRITE_SIZE) {
             data.offset = offset;
@@ -306,11 +314,16 @@ int efuse_write_m1 (const char *efuse_data, char control)
         /* Delete previous uuid data.*/
         if (offset && (offset < UUID_FLASH_SIZE)) {
             data.offset = offset - UUID_WRITE_SIZE;
-            printf ("erase offset = %d, erase ret = %d\n",
+            printf ("EFUSE_WRITE : erase offset = %d, erase ret = %d\n",
                 data.offset, ioctl (fd, IOC_ERASE, &data));
         } else {
-            printf ("Can't found empty uuid flash area.\n");
+            if (offset)
+                printf ("Can't found empty uuid flash area. offsest = %d\n", offset);
         }
+    } else {
+        data.offset = 0;
+        printf ("EFUSE_ERASE : erase offset = %d, erase ret = %d\n",
+                data.offset, ioctl (fd, IOC_ERASE, &data));
     }
     close (fd);
 
@@ -340,9 +353,11 @@ int efuse_control (char *efuse_data, char control)
         case EFUSE_ERASE:
             memset (efuse_data, 0, EFUSE_SIZE_BYTE);
         case EFUSE_WRITE:
-            if (efuse_get_board() == eBOARD_ID_M1) {
-                if (!efuse_write_m1 (efuse_data, control)) {
-                    printf ("error, m1 efuse %s\n", control == EFUSE_ERASE ? "erase" : "write");
+            if ((efuse_get_board() == eBOARD_ID_M1) || (efuse_get_board() == eBOARD_ID_C4)) {
+                if (!efuse_write_ioctl (efuse_data, control)) {
+                    printf ("error, %s efuse %s\n",
+                        efuse_get_board() == eBOARD_ID_M1 ? "m1":"c4",
+                        control == EFUSE_ERASE ? "erase" : "write");
                     return 0;
                 }
                 size = EFUSE_SIZE_BYTE;
