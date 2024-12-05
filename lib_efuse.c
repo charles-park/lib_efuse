@@ -102,8 +102,8 @@ const char *C4_eFuseRWControl = "/dev/efuse";
 const char *C4_eFuseRWFile    = "/sys/class/efuse/uuid";
 
 /* 2024/11/14 Jig upgrade. */
-const char *C4_MAC_START_STR = "001E064B"; // 65536개
-const int   C4_MAC_BLOCK_CNT = 2;          // 2개의 block reserved (13만개)
+const char *C4_MAC_START_STR = "001E064A"; // 65536개
+const int   C4_MAC_BLOCK_CNT = 3;          // 2개의 block reserved (13만개)
 const int   C4_MAC_RW_OFFSET = 0;
 const int   C4_EFUSE_SIZE_BYTE = EFUSE_UUID_SIZE;
 
