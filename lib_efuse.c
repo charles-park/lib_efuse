@@ -103,7 +103,7 @@ const char *C4_eFuseRWFile    = "/sys/class/efuse/uuid";
 
 /* 2024/11/14 Jig upgrade. */
 const char *C4_MAC_START_STR = "001E064A"; // 65536개
-const int   C4_MAC_BLOCK_CNT = 3;          // 2개의 block reserved (13만개)
+const int   C4_MAC_BLOCK_CNT = 3;          // 3개의 block reserved (13만개)
 const int   C4_MAC_RW_OFFSET = 0;
 const int   C4_EFUSE_SIZE_BYTE = EFUSE_UUID_SIZE;
 
@@ -223,7 +223,8 @@ int efuse_get_board (void)
 //------------------------------------------------------------------------------
 int efuse_valid_check (const char *efuse_data)
 {
-    char data[10], addr, mac;
+    char data[10];
+    int addr, mac;
 
     // not odroid mac
     if (strstr (efuse_data, "001E06") == NULL) {
@@ -233,11 +234,11 @@ int efuse_valid_check (const char *efuse_data)
 
     memset (data, 0, sizeof(data));
     strncpy (data, &efuse_data[EFUSE_MAC_OFFSET + 6], 2);
-    mac = atoi(data);
+    mac = (int)strtoul(data, NULL, 16);
 
     memset  (data, 0, sizeof(data));
     strncpy (data, &MAC_START_STR[6], 2);
-    addr = atoi(data);
+    addr = (int)strtoul(data, NULL, 16);
 
     dbg_msg ("ODROID (Board ID = %d, 0 = m1, 1 = m1s, 2 = m2, 3 = c4) mac range.\n", EFUSE_BOARD_ID);
     if ((mac >= addr) && (mac < addr + MAC_BLOCK_CNT)) {
@@ -246,10 +247,19 @@ int efuse_valid_check (const char *efuse_data)
         return 1;
     }
 
-    printf ("error, mac range.\n");
-    printf ("mac : %s, range %s0000 ~ (%d block)\n",
-        &efuse_data[EFUSE_MAC_OFFSET], MAC_START_STR, MAC_BLOCK_CNT);
-
+    if (EFUSE_BOARD_ID == eBOARD_ID_C4) {
+        memset  (data, 0, sizeof(data));
+        strncpy (data, "48", 2);
+        addr = (int)strtoul(data, NULL, 16);
+        if (addr == mac) {
+            printf ("ODROID-C4 Old product mac range.\n");
+            return 1;
+        }
+    } else {
+        printf ("error, mac range.\n");
+        printf ("mac : %s, range %s0000 ~ (%d block)\n",
+            &efuse_data[EFUSE_MAC_OFFSET], MAC_START_STR, MAC_BLOCK_CNT);
+    }
     return 0;
 }
 
