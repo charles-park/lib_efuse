@@ -125,7 +125,7 @@ static void parse_opts (int argc, char *argv[])
             OPT_EFUSE_CONTROL = EFUSE_ERASE;
             break;
         case 'c':
-            OPT_EFUSE_CONTROL = EFUSE_ERASE;
+            OPT_EFUSE_CONTROL = EFUSE_READ;
             OPT_ADD_CONTROL   = "valid_check";
             break;
         case 'm':
@@ -163,6 +163,8 @@ int main (int argc, char **argv)
             efuse_set_board (eBOARD_ID_C4);
         else if (!strncmp (OPT_BOARD_NAME, "C4", sizeof("C4")))
             efuse_set_board (eBOARD_ID_C4);
+        else if (!strncmp (OPT_BOARD_NAME, "C5", sizeof("C5")))
+            efuse_set_board (eBOARD_ID_C5);
         else
             efuse_set_board (eBOARD_ID_M1S);
     }
@@ -186,7 +188,7 @@ int main (int argc, char **argv)
             memset (mac, 0, sizeof(mac));
             efuse_get_mac (efuse_data, mac);
             printf ("mac : %c%c:%c%c:%c%c:%c%c:%c%c:%c%c\n",
-                mac[0],mac[1], mac[2], mac[3],
+                mac[0], mac[1], mac[2], mac[3],
                 mac[4], mac[5], mac[6], mac[7],
                 mac[8], mac[9], mac[10],mac[11]);
         }
