@@ -67,6 +67,7 @@ enum {
 //------------------------------------------------------------------------------
 //	function prototype
 //------------------------------------------------------------------------------
+extern int  efuse_set_board_str (char *bd_name);
 extern int  efuse_set_board     (int board_id);
 extern int  efuse_get_board     (void);
 extern int  efuse_valid_check   (const char *efuse_data);

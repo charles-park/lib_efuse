@@ -169,6 +169,17 @@ static int efuse_lock (char lock)
 }
 
 //------------------------------------------------------------------------------
+int efuse_set_board_str (char *bd_name)
+{
+    if (!strncmp (bd_name,  "c4", sizeof("c4")))    return efuse_set_board (eBOARD_ID_C4);
+    if (!strncmp (bd_name,  "m1", sizeof("m1")))    return efuse_set_board (eBOARD_ID_M1);
+    if (!strncmp (bd_name, "m1s", sizeof("m1s")))   return efuse_set_board (eBOARD_ID_M1S);
+    if (!strncmp (bd_name,  "m2", sizeof("m2")))    return efuse_set_board (eBOARD_ID_M2);
+    if (!strncmp (bd_name,  "c5", sizeof("c5")))    return efuse_set_board (eBOARD_ID_C5);
+    return 0;
+}
+
+//------------------------------------------------------------------------------
 int efuse_set_board (int board_id)
 {
     switch (board_id) {
