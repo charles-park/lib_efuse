@@ -389,7 +389,7 @@ int efuse_control (char *efuse_data, char control)
             memset (efuse_data, 0, EFUSE_SIZE_BYTE);
         case EFUSE_WRITE:
             switch (efuse_get_board()) {
-                case eBOARD_ID_M1: case eBOARD_ID_C4: case eBOARD_ID_C5:
+                case eBOARD_ID_M1: case eBOARD_ID_C4:
                     if (!efuse_write_ioctl (efuse_data, control)) {
                         printf ("error, %s efuse %s\n",
                             efuse_get_board() == eBOARD_ID_M1 ? "m1":"c4",
@@ -399,9 +399,11 @@ int efuse_control (char *efuse_data, char control)
                     size = EFUSE_SIZE_BYTE;
                     break;
 
-                case eBOARD_ID_M1S: case eBOARD_ID_M2:
-                    if (!efuse_lock(EFUSE_UNLOCK))
-                        return 0;
+                case eBOARD_ID_M1S: case eBOARD_ID_M2: case eBOARD_ID_C5:
+                    // emmc hidden protect
+                    if (efuse_get_board() != eBOARD_ID_C5) {
+                        if (!efuse_lock(EFUSE_UNLOCK)) return 0;
+                    }
 
                     if ((fd = open (eFuseRWFile, O_WRONLY)) < 0) {
                         printf ("error, file write mode open (%s)\n", eFuseRWFile);
@@ -409,8 +411,11 @@ int efuse_control (char *efuse_data, char control)
                     }
                     size = pwrite (fd, efuse_data, EFUSE_SIZE_BYTE, MAC_RW_OFFSET);
                     close (fd);
-                    if (!efuse_lock(EFUSE_LOCK))
-                        return 0;
+
+                    // emmc hidden protect
+                    if (efuse_get_board() != eBOARD_ID_C5) {
+                        if (!efuse_lock(EFUSE_UNLOCK)) return 0;
+                    }
                     break;
                 default :
                     return 0;
@@ -419,7 +424,6 @@ int efuse_control (char *efuse_data, char control)
             break;
         case EFUSE_READ:
             memset (efuse_data, 0, EFUSE_SIZE_BYTE);
-printf ("%s : %s\n", __func__, eFuseRWFile);
             if ((fd = open (eFuseRWFile, O_RDONLY)) < 0) {
                 printf ("error, file read mode open (%s)\n", eFuseRWFile);
                 return 0;
