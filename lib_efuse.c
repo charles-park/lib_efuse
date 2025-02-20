@@ -121,8 +121,6 @@ const int   C5_EFUSE_SIZE_BYTE = EFUSE_UUID_SIZE;
 //------------------------------------------------------------------------------
 // function prototype
 //------------------------------------------------------------------------------
-static void tolowerstr  (char *p);
-static void toupperstr  (char *p);
 static int  efuse_lock  (char lock);
 
 int  efuse_set_board    (int board_id);
@@ -135,6 +133,8 @@ int  efuse_control      (char *efuse_data, char control);
 //------------------------------------------------------------------------------
 // 문자열 변경 함수. 입력 포인터는 반드시 메모리가 할당되어진 변수여야 함.
 //------------------------------------------------------------------------------
+#if 0
+static void tolowerstr (char *p);
 static void tolowerstr (char *p)
 {
     int i, c = strlen(p);
@@ -142,8 +142,9 @@ static void tolowerstr (char *p)
     for (i = 0; i < c; i++, p++)
         *p = tolower(*p);
 }
-
+#endif
 //------------------------------------------------------------------------------
+static void toupperstr (char *p);
 static void toupperstr (char *p)
 {
     int i, c = strlen(p);
@@ -273,9 +274,7 @@ int efuse_valid_check (const char *efuse_data)
     }
 
     if (EFUSE_BOARD_ID == eBOARD_ID_C4) {
-        memset  (data, 0, sizeof(data));
-        strncpy (data, "48", 2);
-        addr = (int)strtoul(data, NULL, 16);
+        addr = (int)strtoul("48", NULL, 16);
         if (addr == mac) {
             printf ("ODROID-C4 Old product mac range.\n");
             return 1;
@@ -385,9 +384,10 @@ int efuse_control (char *efuse_data, char control)
         return 0;
     }
     switch (control) {
-        case EFUSE_ERASE:
-            memset (efuse_data, 0, EFUSE_SIZE_BYTE);
-        case EFUSE_WRITE:
+        case EFUSE_ERASE: case EFUSE_WRITE:
+            if (control == EFUSE_ERASE)
+                memset (efuse_data, 0, EFUSE_SIZE_BYTE);
+
             switch (efuse_get_board()) {
                 case eBOARD_ID_M1: case eBOARD_ID_C4:
                     if (!efuse_write_ioctl (efuse_data, control)) {
