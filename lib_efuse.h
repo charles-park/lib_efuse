@@ -61,6 +61,7 @@ enum {
     eBOARD_ID_M2,
     eBOARD_ID_C4,
     eBOARD_ID_C5,
+    eBOARD_ID_R1,
     eBOARD_ID_END
 };
 
